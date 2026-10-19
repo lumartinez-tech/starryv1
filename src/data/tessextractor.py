@@ -628,12 +628,13 @@ def Tess_Period(tic, Tmag, sector):
 import traceback
 ###################################################################################################################
 
-for i in range(len(tic)):
-    try:
-        Tess_Period(tic[i], Tmag[i], sector[i])
-        print(i, tic[i], Tmag[i], sector[i])
-    except Exception as e:
-        print(f"Error en {i}, TIC {tic[i]}: {e}")
+if __name__ == '__main__':
+    for i in range(len(tic)):
+        try:
+            Tess_Period(tic[i], Tmag[i], sector[i])
+            print(i, tic[i], Tmag[i], sector[i])
+        except Exception as e:
+            print(f"Error en {i}, TIC {tic[i]}: {e}")
         traceback.print_exc()
 f.close()
 

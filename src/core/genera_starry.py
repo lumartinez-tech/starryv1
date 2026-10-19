@@ -13,11 +13,15 @@ RES = RUTA_ORION / "resultados_pipeline"
 DESTINO = RUTA_ORION / "starry_por_tic"
 TEST = "--test" in sys.argv
 
-priors = pd.read_csv(RUTA_ORION / "priors_v2.csv")   # profundidades v2 (1b_profundidades_eclipse_v2.ipynb)
-cat = pd.read_csv(RUTA_ORION / "catalogo_completo_mist_sommers.csv")
-resumen = pd.read_csv(RES / "resumen_por_tic_sector.csv")
-largo = pd.read_csv(RES / "secundarias_por_sector_largo.csv")
-comb = pd.read_csv(RES / "resumen_por_tic_combinado.csv")
+if (RUTA_ORION / "priors_v2.csv").exists() and (RES / "secundarias_por_sector_largo.csv").exists():
+    priors = pd.read_csv(RUTA_ORION / "priors_v2.csv")
+    cat = pd.read_csv(RUTA_ORION / "catalogo_completo_mist_sommers.csv")
+    resumen = pd.read_csv(RES / "resumen_por_tic_sector.csv")
+    largo = pd.read_csv(RES / "secundarias_por_sector_largo.csv")
+    comb = pd.read_csv(RES / "resumen_por_tic_combinado.csv")
+else:
+    priors, cat, resumen, largo, comb = None, None, None, None, None
+    print("ℹ️ Catálogos de resultados no encontrados. Carga diferida activada para genera_starry.")
 
 # ---------------------------------------------------------------------------
 # utilidades
@@ -1136,42 +1140,45 @@ def ya_ejecutado(path):
     return any(c.get("outputs") for c in viejo.cells if c.cell_type == "code")
 
 
-filas_indice = []
-for _, r in resumen.sort_values(["TIC", "Sector"]).iterrows():
-    tic, sector = int(r["TIC"]), int(r["Sector"])
-    p = priors.loc[(priors["TIC"] == tic) & (priors["Sector"] == sector)].iloc[0]
-    if not np.isfinite(p["Depth_primary"]):
-        print(f"[omitido] TIC {tic} S{sector}: sin Depth_primary")
-        continue
-    file_lc = RUTA_ORION / "Light_Curve_Files" / f"tic {tic}_S_{sector}_LC.txt"
-    t = pd.read_csv(file_lc, sep=r"\s+", usecols=["#Time"], nrows=50)["#Time"].to_numpy()
-    cadencia = np.median(np.diff(t)) * 1440
-    npts = n_puntos(file_lc)
-    v, avisos, fuente = priors_de(tic, sector)
-    v["prot"] = p["P_rot"]
-    base = Path(__file__).resolve().parent / "test_starry" if TEST else DESTINO
-    out_dir = base / f"TIC_{tic}" / f"S{sector}"
-    nb = crear(tic, sector, v, avisos, fuente, file_lc, npts, cadencia, out_dir, test=TEST)
-    nb_path = base / f"TIC_{tic}" / f"full_{tic}_s{sector}.ipynb"
-    if ya_ejecutado(nb_path):
-        # no se pisa un notebook con resultados: la versión nueva va aparte y escribe en S<sector>_ecc/
-        nb_path = nb_path.with_name(f"full_{tic}_s{sector}_ecc.ipynb")
-        out_dir = out_dir.with_name(f"S{sector}_ecc")
-        nb = crear(tic, sector, v, avisos, fuente, file_lc, npts, cadencia, out_dir, test=TEST)
-        print(f"[conservado] full_{tic}_s{sector}.ipynb tiene salidas; la versión nueva es {nb_path.name}")
-    if ya_ejecutado(nb_path):
-        print(f"[omitido] {nb_path.name} ya tiene salidas; no se sobreescribe")
-        continue
-    nb_path.parent.mkdir(parents=True, exist_ok=True)
-    nbf.write(nb, nb_path)
-    filas_indice.append(dict(TIC=tic, Sector=sector, puntos=npts, cadencia_min=round(cadencia, 2),
-                             notebook=str(nb_path) if TEST else str(nb_path.relative_to(RUTA_ORION)), n_avisos=len(avisos),
-                             avisos=" | ".join(avisos)))
-    if TEST:
-        break
-
-if not TEST:
-    ind = pd.DataFrame(filas_indice)
-    ind.to_csv(DESTINO / "indice_notebooks.csv", index=False)
-    print(f"{len(ind)} notebooks en {DESTINO}")
-    print(ind[["TIC", "Sector", "puntos", "n_avisos"]].to_string(index=False))
+if __name__ == '__main__':
+    if resumen is not None:
+        filas_indice = []
+        for _, r in resumen.sort_values(["TIC", "Sector"]).iterrows():
+            tic, sector = int(r["TIC"]), int(r["Sector"])
+            p = priors.loc[(priors["TIC"] == tic) & (priors["Sector"] == sector)].iloc[0]
+            if not np.isfinite(p["Depth_primary"]):
+                print(f"[omitido] TIC {tic} S{sector}: sin Depth_primary")
+                continue
+            file_lc = RUTA_ORION / "Light_Curve_Files" / f"tic {tic}_S_{sector}_LC.txt"
+            t = pd.read_csv(file_lc, sep=r"\s+", usecols=["#Time"], nrows=50)["#Time"].to_numpy()
+            cadencia = np.median(np.diff(t)) * 1440
+            npts = n_puntos(file_lc)
+            v, avisos, fuente = priors_de(tic, sector)
+            v["prot"] = p["P_rot"]
+            base = Path(__file__).resolve().parent / "test_starry" if TEST else DESTINO
+            out_dir = base / f"TIC_{tic}" / f"S{sector}"
+            nb = crear(tic, sector, v, avisos, fuente, file_lc, npts, cadencia, out_dir, test=TEST)
+            nb_path = base / f"TIC_{tic}" / f"full_{tic}_s{sector}.ipynb"
+            if ya_ejecutado(nb_path):
+                # no se pisa un notebook con resultados: la versión nueva va aparte y escribe en S<sector>_ecc/
+                nb_path = nb_path.with_name(f"full_{tic}_s{sector}_ecc.ipynb")
+                out_dir = out_dir.with_name(f"S{sector}_ecc")
+                nb = crear(tic, sector, v, avisos, fuente, file_lc, npts, cadencia, out_dir, test=TEST)
+                print(f"[conservado] full_{tic}_s{sector}.ipynb tiene salidas; la versión nueva es {nb_path.name}")
+            if ya_ejecutado(nb_path):
+                print(f"[omitido] {nb_path.name} ya tiene salidas; no se sobreescribe")
+                continue
+            nb_path.parent.mkdir(parents=True, exist_ok=True)
+            nbf.write(nb, nb_path)
+            filas_indice.append(dict(TIC=tic, Sector=sector, puntos=npts, cadencia_min=round(cadencia, 2),
+                                     notebook=str(nb_path) if TEST else str(nb_path.relative_to(RUTA_ORION)), n_avisos=len(avisos),
+                                     avisos=" | ".join(avisos)))
+            if TEST:
+                break
+        
+        if not TEST:
+            ind = pd.DataFrame(filas_indice)
+            ind.to_csv(DESTINO / "indice_notebooks.csv", index=False)
+            print(f"{len(ind)} notebooks en {DESTINO}")
+            print(ind[["TIC", "Sector", "puntos", "n_avisos"]].to_string(index=False))
+        
