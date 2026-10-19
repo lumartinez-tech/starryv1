@@ -1,0 +1,510 @@
+\documentclass[11pt,a4paper]{article}
+
+% ------------------------------------------------------------
+% Paquetes
+% ------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands,es-tabla]{babel}
+\decimalpoint
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[round,authoryear]{natbib}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\graphicspath{{figuras/}}
+
+\newcommand{\porb}{P_{\rm orb}}
+\newcommand{\prot}{P_{\rm rot}}
+\newcommand{\Rsun}{R_\odot}
+\newcommand{\Msun}{M_\odot}
+\newcommand{\teff}{T_{\rm eff}}
+
+\title{Geometría de la binaria eclipsante TIC~50897998:\\
+efeméride, profundidades de eclipse y modulación orbital fuera de eclipse}
+\author{Notas de procedimiento}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Estas notas explican paso a paso cómo se resolvió la geometría de la binaria eclipsante
+TIC~50897998 a partir de tres sectores de TESS (S6, S32 y S98). El problema de partida era
+que el \emph{detrending} no lograba seguir la variación fuera de eclipse. El diagnóstico mostró
+que esa variación no es rotación estelar, sino la \textbf{variación elipsoidal} y la
+\textbf{reflexión} de un sistema cercano con una primaria muy caliente
+($\teff\approx 27\,800$~K). Además, el catálogo de partida tenía tres errores: un periodo
+orbital impreciso, una duración de eclipse equivocada en S32 y los eclipses primario y
+secundario intercambiados en ese mismo sector. Se describen las correcciones, el modelo de
+tendencia $T(t)=S(t)\,H(\phi)$ que reemplaza al filtro biweight, los números resultantes y
+una comprobación física independiente de que la amplitud observada coincide con la elipsoidal
+esperada.
+\end{abstract}
+
+\tableofcontents
+
+% ============================================================
+\section{Resumen de resultados}
+% ============================================================
+
+\begin{table}[H]
+\centering
+\caption{Parámetros de TIC~50897998 antes (catálogo \texttt{priors\_completosv1.csv}) y después
+de las correcciones. $D_1$ y $D_2$ son las profundidades de los eclipses primario y
+secundario medidas en el fondo del eclipse (sección~\ref{sec:profundidades}); $e\cos\omega$ se
+calcula con la fase del secundario (sección~\ref{sec:ecc}).}
+\label{tab:resumen}
+\begin{tabular}{lccc}
+\toprule
+ & S6 & S32 & S98 \\
+\midrule
+Cadencia (min) & 30.0 & 10.0 & 3.3 \\
+Número de puntos & 911 & 3459 & 18318 \\
+\midrule
+$\porb$ catálogo (d) & 1.48244 & 1.48614 & 1.48244 \\
+$\porb$ refinado (d) & 1.48584 & 1.48513 & 1.48534 \\
+$t_0$ catálogo (BTJD) & 1468.4725 & 2174.7376 & 3993.6408 \\
+$t_0$ refinado (BTJD) & 1468.4453 & 2175.4918$^{a}$ & 3993.5912 \\
+Duración catálogo (d) & 0.211 & 0.056$^{b}$ & 0.249 \\
+Duración usada (d) & 0.211 & 0.211 & 0.249 \\
+\midrule
+$D_1$ catálogo & 0.2346 & 0.1298$^{a}$ & 0.2140 \\
+$D_2$ catálogo & 0.1484 & 0.2115$^{a}$ & 0.1355 \\
+$D_1$ (este trabajo) & $0.2436\pm0.0023$ & $0.2427\pm0.0005$ & $0.2336\pm0.0001$ \\
+$D_2$ (este trabajo) & $0.1418\pm0.0025$ & $0.1415\pm0.0005$ & $0.1351\pm0.0001$ \\
+$D_1$ respecto de $H(\phi)$ & 0.200 & 0.198 & 0.192 \\
+$e\cos\omega$ & $+0.011$ & $+0.0002$ & $-0.0015$ \\
+\midrule
+Amplitud elipsoidal $-a_2$ & 0.0211 & 0.0211 & 0.0203 \\
+Amplitud de reflexión $-a_1$ & 0.0120 & 0.0119 & 0.0110 \\
+rms fuera de eclipse, antes (ppt) & 12.2 & 9.9 & 9.9 \\
+rms fuera de eclipse, después (ppt) & 1.8 & 2.3 & 2.3 \\
+\bottomrule
+\end{tabular}
+
+\smallskip
+\raggedright\footnotesize
+$^{a}$ En S32 el $t_0$ del catálogo estaba en el eclipse \emph{menos} profundo, así que $D_1$ y
+$D_2$ estaban intercambiadas (sección~\ref{sec:primario}).\\
+$^{b}$ Duración de BLS errónea en S32 (sección~\ref{sec:duracion}).
+\end{table}
+
+En pocas palabras:
+\begin{enumerate}
+\item El periodo orbital es $\porb=1.4853\pm0.0004$~d en los tres sectores (dispersión entre
+  sectores). El valor del catálogo tenía un error de $\sim3\times10^{-3}$~d.
+\item Con la efeméride corregida, las profundidades de los tres sectores concuerdan:
+  $D_1\approx0.24$ y $D_2\approx0.14$. La ``inconsistencia'' que se veía en S32
+  ($D_1=0.13$) era un intercambio de eclipses.
+\item La órbita es circular dentro de la precisión de los datos:
+  $|e\cos\omega|\lesssim0.002$ en S32 y S98.
+\item La modulación fuera de eclipse tiene periodo $\porb/2$, amplitud de 2.1~\% y mínimos
+  en los eclipses. Es variación elipsoidal (más un término de reflexión), no rotación. Su
+  amplitud coincide con la predicción teórica (sección~\ref{sec:chequeo}).
+\item El nuevo modelo de tendencia reduce el rms fuera de eclipse entre 4 y 7 veces.
+\end{enumerate}
+
+% ============================================================
+\section{Datos}
+% ============================================================
+Se usan las curvas de luz de TESS \citep{Ricker2015} de los sectores 6, 32 y 98, con el flujo
+corregido por vectores de tendencia común (\texttt{Flux\_CBV\_SS}). Las cadencias son distintas
+(30, 10 y 3.3~min), así que la resolución temporal de los eclipses cambia mucho de un sector a
+otro: con 30~min, cada punto promedia $\sim$14~\% de la duración del eclipse
+($\tau\approx0.21$~d). Eso afecta la forma observada del eclipse y se corrige en el modelo de
+starry integrando el flujo durante la exposición \citep{Kipping2010}.
+
+La primaria tiene $\teff=27\,800$~K, $\log L/L_\odot=4.10$ y $M_A\approx10.5\,\Msun$ (ajuste
+MIST; \citealt{Choi2016,Dotter2016}). Su radio por Stefan--Boltzmann es
+$R_A=4.8\pm2.8\,\Rsun$; la incertidumbre es grande porque la $\teff$ de una estrella tan
+caliente está mal acotada.
+
+% ============================================================
+\section{Efeméride: periodo y época}
+\label{sec:efemeride}
+% ============================================================
+
+\subsection{Búsqueda inicial con BLS}
+El periodo del catálogo sale de una búsqueda \emph{Box Least Squares} \citep[BLS;][]{Kovacs2002}.
+BLS ajusta a la curva plegada una función caja (flujo constante fuera y un nivel más bajo
+durante una fracción $q$ del periodo) y maximiza, sobre una malla de periodos y duraciones,
+\begin{equation}
+\mathrm{SR}(P,q)=\left[\frac{s^2}{r(1-r)}\right]^{1/2},
+\end{equation}
+donde $r$ es el peso de los puntos dentro de la caja y $s$ la suma pesada de sus residuos. La
+precisión de $P$ queda limitada por el espaciado de la malla. En el catálogo, S6 y S98 dan
+\emph{exactamente} el mismo valor, 1.482441~d: es el mismo nodo de la malla gruesa, no una
+coincidencia física.
+
+\subsection{Por qué un error pequeño en $P$ importa}
+Si el periodo tiene un error $\delta P$, después de $N$ ciclos el eclipse se corre en fase
+\begin{equation}
+\delta\phi \simeq N\,\frac{\delta P}{P}.
+\label{eq:deriva}
+\end{equation}
+En un sector de $\sim$27~d hay $N\approx18$ ciclos. Con $\delta P=3\times10^{-3}$~d la deriva es
+$\delta\phi\approx0.04$: los eclipses plegados se ``abren'' en varias trazas (panel superior
+derecho de la figura~\ref{fig:aplanadas}). Además, la máscara de eclipses se centra mal y deja
+escapar los bordes de los eclipses hacia el ajuste de la tendencia.
+
+\subsection{Refinamiento}
+Se repite BLS en una ventana estrecha alrededor del periodo del catálogo,
+$P\in P_{\rm cat}(1\pm0.005)$, con 4000 periodos y cuatro duraciones
+($0.6$, $0.8$, $1.0$ y $1.2$ veces la duración robusta de la sección~\ref{sec:duracion}). El paso
+en periodo es $\Delta P\approx3.7\times10^{-6}$~d, mil veces menor que el error inicial. El
+$t_0$ se toma del eclipse de BLS más cercano al $t_0$ del catálogo, así que se sigue el mismo
+eclipse físico. Si BLS se engancha al otro eclipse, se corrige sumando $P/2$.
+
+Los tres sectores dan ahora $1.48584$, $1.48513$ y $1.48534$~d (tabla~\ref{tab:resumen}), con
+una dispersión de $4\times10^{-4}$~d, frente a $2\times10^{-3}$~d en el catálogo. La curva plegada
+de S98 queda en una sola traza (figura~\ref{fig:aplanadas}, abajo).
+
+% ============================================================
+\section{¿Qué eclipse es el primario?}
+\label{sec:primario}
+% ============================================================
+
+\subsection{$P$ o $2P$}
+Antes de nada hay que decidir si el periodo es $P$ o $2P$. Si fuera $2P$, al plegar con $P$ el
+primario y el secundario caerían uno encima del otro en fase 0 y no habría eclipse en fase 0.5.
+Aquí no pasa eso: en los tres sectores hay un segundo eclipse claramente distinto en
+$\phi_2\simeq0.5$ ($D_2\approx0.14$ frente a $D_1\approx0.24$). Eso prueba que $P$ es el periodo
+correcto. La prueba par-impar que se usa en los sistemas sin secundario visible (plegar con $2P$
+y comparar los eclipses alternos; véase \citealt{Thompson2018,Prsa2022}) no hace falta en este caso.
+
+\subsection{Intercambio en S32}
+BLS pone $t_0$ en el eclipse que maximiza su estadístico, que no siempre es el más profundo. En
+S32 el $t_0$ del catálogo estaba en el eclipse \emph{menos} profundo: allí se medía
+$D(0)=0.141$ y $D(0.5)=0.243$. Por convención, el eclipse primario es el más profundo, que es el
+que ocurre cuando la estrella de mayor brillo superficial queda oculta \citep{Hilditch2001}. Además, en starry la
+secundaria pasa por delante de la primaria justo en $t_0$. Por eso, si
+\begin{equation}
+\hat D(\phi_2)-\hat D(0) > 3\sqrt{\sigma^2_{\hat D(0)}+\sigma^2_{\hat D(\phi_2)}},
+\end{equation}
+se mueve $t_0\to t_0+\phi_2\,P$ y se vuelve a medir. En S32 el nuevo $t_0$ está $0.754$~d
+($\approx P/2$) después del anterior. Con esto, las profundidades de S32 coinciden con las de S6
+y S98 (tabla~\ref{tab:resumen}).
+
+% ============================================================
+\section{Duración del eclipse}
+\label{sec:duracion}
+% ============================================================
+En S32, BLS dio una duración de 0.056~d, cuatro veces menor que en S6 (0.211~d) y S98 (0.249~d).
+Es un fallo de la malla de duraciones: la duración es una propiedad del sistema y no puede cambiar
+así entre sectores. Con esa duración, el ancho del eclipse en fase ($W=\tau/P=0.038$) es tan
+pequeño que la máscara no cubre los eclipses y la línea base incluye sus alas. En la figura~\ref{fig:tendencias}
+(S32, curva roja) se ve el efecto: la tendencia ``se hunde'' en cada eclipse y se come parte de la
+profundidad.
+
+La regla es: si la duración de un sector difiere más de 40~\% de la mediana de los sectores del mismo
+sistema, se usa la mediana. La regla no se aplica a sectores donde BLS falló por completo
+(duración $>0.25$ en fase), porque ahí tampoco el periodo es confiable.
+
+% ============================================================
+\section{Profundidades de eclipse}
+\label{sec:profundidades}
+% ============================================================
+
+\subsection{Estimador}
+La profundidad se define como la caída de flujo en el \emph{fondo} del eclipse,
+$D=1-F_{\min}$. El estimador anterior (la mediana en una ventana fija de $\pm0.03$ en fase)
+subestimaba sistemáticamente eclipses angostos y en forma de V. El estimador nuevo:
+\begin{enumerate}
+\item normaliza el flujo con una tendencia calculada solo fuera de eclipse;
+\item toma la línea base $\hat B$ como la mediana fuera de eclipse;
+\item busca el fondo con una ventana de semiancho $\alpha W/2$ que escala con el ancho del eclipse,
+  y elige la $\alpha$ más pequeña de $\{0.05,0.1,\ldots,0.3\}$ que deje al menos 5 puntos. La posición
+  del centro se busca en $\pm W/2$ alrededor de $t_0$.
+\end{enumerate}
+Para un eclipse en V, la mediana en esa ventana subestima $D$ a lo más en un factor $\alpha/2$. En
+los tres sectores de este sistema se alcanza $\alpha=0.05$, así que el sesgo es $\le2.5$~\%. El
+error estadístico es
+\begin{equation}
+\sigma_{\hat D}=\sqrt{\sigma_B^2+\sigma_{\min}^2},\qquad
+\sigma_{B,\min}=\sqrt{\tfrac{\pi}{2}}\,\frac{\hat\sigma}{\sqrt{n_{B,\min}}},
+\end{equation}
+con $\hat\sigma$ el ruido por punto estimado con diferencias sucesivas y $\sqrt{\pi/2}\approx1.2533$
+el cociente entre el error estándar de la mediana y el de la media para ruido gaussiano.
+
+\subsection{Resultados y dispersión entre sectores}
+Con la efeméride refinada y el primario bien identificado, $D_1=0.244$, $0.243$ y $0.234$, y
+$D_2=0.142$, $0.142$ y $0.135$. S6 y S32 coinciden dentro de sus errores. S98 es $\sim$4~\% más
+somero en los dos eclipses. Como el efecto es el mismo en ambos, lo más probable es una dilución
+algo mayor por contaminación de estrellas vecinas en ese sector (el campo de Orión está muy
+poblado). Los errores estadísticos de S98 ($10^{-4}$) son mucho menores que esta diferencia
+sistemática, así que en el análisis conjunto conviene tratarla como un error sistemático entre
+sectores o ajustar una dilución por sector.
+
+\subsection{¿Profundidad respecto de qué?}
+\label{sec:normalizacion}
+La variación elipsoidal oscurece el sistema justo en los eclipses: en $\phi=0$ el flujo sin eclipse
+es $H(0)\approx0.967$ veces el de las cuadraturas (sección~\ref{sec:modulacion}). Por eso hay dos
+profundidades posibles:
+\begin{itemize}
+\item \textbf{respecto de la línea base} (fuera de eclipse, dominada por las cuadraturas):
+  $D_1\approx0.24$. Es lo que mide el estimador de la sección anterior y lo que está en
+  \texttt{priors\_v2.csv};
+\item \textbf{respecto del flujo sin eclipse en esa misma fase}, $H(\phi)$: $D_1^{H}\approx0.20$
+  y $D_2^{H}\approx0.11$ (tabla~\ref{tab:resumen}).
+\end{itemize}
+La geométricamente relevante es la segunda: la fracción de luz que se pierde \emph{por el
+eclipse}, sin contar el oscurecimiento elipsoidal que ya había en esa fase. En el ajuste con starry
+se usa la curva normalizada por $H$, así que el modelo ve $D^{H}$. Las profundidades de
+\texttt{priors\_v2.csv} solo fijan el centro de priors anchos (los radios tienen prior log-uniforme),
+y el ajuste los corrige.
+
+% ============================================================
+\section{Excentricidad}
+\label{sec:ecc}
+% ============================================================
+En una órbita excéntrica el secundario no ocurre a media fase. A primer orden en $e$
+\citep{Kopal1959,Winn2010},
+\begin{equation}
+\phi_2-\frac{1}{2}\simeq\frac{2}{\pi}\,e\cos\omega
+\qquad\Longrightarrow\qquad
+e\cos\omega\simeq\frac{\pi}{2}\left(\phi_2-\frac12\right),
+\label{eq:ecosw}
+\end{equation}
+y el cociente de duraciones de los dos eclipses da, también a primer orden,
+$d_2/d_1\simeq(1+e\sin\omega)/(1-e\sin\omega)$ \citep{Winn2010}. Con la efeméride refinada,
+$\phi_2=0.5071$, $0.5001$ y $0.4991$ en S6, S32 y S98, lo que da $e\cos\omega=+0.011$, $+0.0002$ y
+$-0.0015$. El valor de S6 está limitado por la cadencia de 30~min: cada punto cubre 0.014 en fase,
+el mismo orden que la desviación. Los sectores de cadencia rápida dan $|e\cos\omega|\lesssim0.002$:
+la órbita es circular en la componente que la fotometría mide bien, como se espera de un sistema
+tan cercano ($\porb=1.49$~d, $a/R_A\approx2.8$).
+
+En el ajuste con starry, $e$ y $\omega$ se muestrean como
+$(h,k)=(\sqrt e\cos\omega,\sqrt e\sin\omega)$ con prior uniforme en el disco unitario, lo que
+equivale a priors uniformes en $e$ y en $\omega$ \citep{Eastman2013}. La componente $e\sin\omega$
+queda mucho peor restringida que $e\cos\omega$, porque se mezcla con los radios y la inclinación
+\citep[efecto foto-excéntrico;][]{Dawson2012}.
+
+% ============================================================
+\section{Modulación fuera de eclipse}
+\label{sec:modulacion}
+% ============================================================
+
+\subsection{Diagnóstico: no es rotación}
+El periodograma de Lomb--Scargle \citep{Lomb1976,Scargle1982,VanderPlas2018} fuera de eclipse da
+$0.743$~d en S6 y S32, es decir, exactamente $\porb/2$. Al plegar con $\porb$
+(figura~\ref{fig:modulacion}), el flujo tiene máximos en las cuadraturas ($\phi=0.25$ y $0.75$) y
+mínimos en los eclipses ($\phi=0$ y $0.5$), la misma forma en los tres sectores, separados por siete
+años. Estas son las firmas de la \textbf{variación elipsoidal} \citep{Morris1985,Morris1993}: la
+marea de la compañera alarga la estrella en la dirección de la línea que las une, y el área
+proyectada (y con ella el flujo) es máxima cuando las vemos de lado y mínima cuando se alinean.
+
+Hay otras dos razones para descartar la rotación:
+\begin{itemize}
+\item una estrella de $27\,800$~K tiene envolvente radiativa y no genera las manchas magnéticas
+  que producen modulación rotacional en estrellas frías;
+\item una modulación por manchas cambiaría de forma y de fase entre sectores tan separados,
+  mientras que aquí la forma y la amplitud se repiten al 4~\%.
+\end{itemize}
+Esto es importante para el análisis de sincronización: en este sistema la señal de $\porb/2$ no
+mide la rotación de la estrella. Lo mismo pasa probablemente en los demás sistemas de la muestra
+con primarias calientes y $\prot\approx\porb/2$ \citep[véase la clasificación entre manchas y
+variación elipsoidal en][]{HobsonRitz2025}.
+
+\subsection{Por qué fallaba el detrending anterior}
+El detrending anterior aplicaba un filtro biweight de Tukey \citep{Mosteller1977} con ventana
+$L=0.55$~d \citep[\texttt{wotan};][]{Hippke2019}, solo a los puntos fuera de eclipse, e
+interpolaba sobre los eclipses. Hay tres problemas:
+\begin{enumerate}
+\item \textbf{Paso bajo.} Un estimador robusto de localización en una ventana deslizante de ancho $L$
+  actúa como un filtro paso bajo: sigue variaciones de periodo $\gg L$ y promedia las de periodo
+  $\lesssim 2L$. La señal elipsoidal tiene periodo $\porb/2=0.74$~d $<2L$, así que el filtro la
+  aplana casi por completo (curva roja de la figura~\ref{fig:tendencias}).
+\item \textbf{La máscara quita justo los mínimos.} Con eclipses tan anchos ($W\approx0.14$--$0.17$) y
+  una máscara de semiancho $W$ alrededor de cada eclipse, se quitaba el 59~\% (S6) y el 68~\% (S98) de
+  la órbita, concentrado en torno a $\phi=0$ y $0.5$, que es donde están los mínimos de la
+  modulación. La interpolación lineal sobre esos huecos une los máximos.
+\item \textbf{Bordes.} Al principio y al final de cada tramo de datos, \texttt{np.interp} solo puede
+  extender el último valor válido, y el biweight usa media ventana. Por eso la tendencia no seguía
+  la señal desde el principio del sector.
+\end{enumerate}
+
+\subsection{Modelo de tendencia orbital}
+La variación fuera de eclipse tiene dos componentes de naturaleza distinta:
+\begin{itemize}
+\item una \textbf{ligada a la órbita}, estrictamente periódica con $\porb$: elipsoidal, reflexión y
+  \emph{beaming} Doppler \citep{Faigler2011,Shporer2017};
+\item una \textbf{lenta}, de sistemáticos instrumentales, con escalas de días.
+\end{itemize}
+Por eso se modela como un producto
+\begin{equation}
+T(t)=S(t)\,H(\phi),\qquad
+H(\phi)=c_0\left[1+\sum_{k=1}^{N}\bigl(a_k\cos2\pi k\phi+b_k\sin2\pi k\phi\bigr)\right],
+\qquad \phi=\frac{t-t_0}{\porb}\bmod 1,
+\label{eq:modelo}
+\end{equation}
+con $N=2$ armónicos. El término $a_2$ (en $\cos4\pi\phi$) es el elipsoidal; $a_1$ (en $\cos2\pi\phi$)
+recoge la reflexión y la diferencia de oscurecimiento gravitacional entre las dos caras de la
+estrella; $b_1$ (en $\sin2\pi\phi$) es el \emph{beaming} \citep{Loeb2003}. El ajuste es iterativo:
+\begin{enumerate}
+\item con $S=1$, se ajustan los coeficientes de $H$ por mínimos cuadrados lineales a los puntos fuera
+  de eclipse, con una máscara de semiancho $0.6\,W$ (el semiancho del eclipse, $W/2$, más un margen del
+  20~\%). Así queda fuera el 34--40~\% de la órbita, en lugar del 59--68~\%;
+\item se calcula $S(t)$ con un biweight de 2~d sobre $f/H$ (la ventana puede ser larga porque $S$ ya no
+  tiene que seguir la modulación orbital);
+\item se repite dos veces más con $f/S$.
+\end{enumerate}
+La ventaja clave es que $H$ es una función periódica suave, determinada con puntos de \emph{todas} las
+fases fuera de eclipse. Por eso se puede evaluar sin ambigüedad dentro de los eclipses, algo que la
+interpolación no puede hacer (figura~\ref{fig:modulacion}).
+
+\subsection{Resultados}
+Los coeficientes son casi idénticos en los tres sectores (tabla~\ref{tab:resumen}):
+$a_2=-0.0211$, $-0.0211$ y $-0.0203$; $a_1=-0.0120$, $-0.0119$ y $-0.0110$;
+$|b_1|\approx1\times10^{-4}$ y $|b_2|\le5\times10^{-4}$. Los signos tienen sentido físico:
+\begin{itemize}
+\item $a_2<0$: mínimos en $\phi=0$ y $0.5$, como debe ser en la variación elipsoidal;
+\item $a_1<0$: el sistema es más brillante en $\phi=0.5$ que en $\phi=0$. En $\phi=0$ la secundaria está
+  delante, así que vemos su lado no iluminado y el lado de la primaria que da hacia la compañera, que
+  es más frío por el oscurecimiento gravitacional cerca del punto $L_1$ \citep{vonZeipel1924}. En
+  $\phi=0.5$ vemos la cara de la secundaria iluminada por la primaria (reflexión). Los dos efectos van
+  en el mismo sentido;
+\item $|b_1|$ pequeño: el \emph{beaming} de las dos estrellas se cancela parcialmente, porque se mueven en
+  direcciones opuestas.
+\end{itemize}
+El rms fuera de eclipse baja de 9.9--12.2 a 1.8--2.3 partes por mil, y la curva aplanada queda plana
+fuera de eclipse en los tres sectores (figura~\ref{fig:aplanadas}).
+
+\subsection{Comprobación física de la amplitud elipsoidal}
+\label{sec:chequeo}
+Para una estrella deformada por marea, la semiamplitud del término en $\cos4\pi\phi$ es, a primer orden
+\citep{Morris1993},
+\begin{equation}
+A_{\rm ell}\simeq\alpha_{\rm ell}\,q\left(\frac{R}{a}\right)^3\sin^2 i,
+\qquad
+\alpha_{\rm ell}=0.15\,\frac{(15+u)(1+\tau)}{3-u},
+\label{eq:elipsoidal}
+\end{equation}
+donde $q$ es el cociente entre la masa de la compañera y la de la estrella deformada, $u$ el coeficiente
+lineal de oscurecimiento al limbo y $\tau$ el de oscurecimiento gravitacional. Con $u=0.3$ y $\tau=0.3$,
+valores típicos para una estrella caliente en la banda de TESS \citep{Claret2017}, $\alpha_{\rm ell}=1.11$.
+Con los parámetros del sistema:
+\begin{itemize}
+\item $M_A=10.48\,\Msun$ (MIST) y $M_B=3.96\,\Msun$ (malla MIST con $R_B=R_A\sqrt{D_1}$), así que $q=0.378$;
+\item por Kepler, $a^3=G(M_A+M_B)\porb^2/4\pi^2$, lo que da $a=13.34\,\Rsun$ con $\porb=1.4853$~d;
+\item $R_A=4.84\,\Rsun$ (Stefan--Boltzmann), así que $R_A/a=0.363$;
+\item $i\approx85^\circ$;
+\end{itemize}
+de donde $A_{\rm ell}(A)=0.0198$. La secundaria también está deformada por la primaria
+($q'=1/q=2.65$, $R_B/a=0.179$, $A_{\rm ell}(B)=0.0166$), pero solo aporta un 14~\% de la luz. La
+predicción total, pesada por luz, es
+\[
+A_{\rm ell}\simeq0.86\times0.0198+0.14\times0.0166=0.0194,
+\]
+frente a $0.0209$ observado: un acuerdo del 7~\%. Cambiar $\tau$ entre 0.2 y 0.5 mueve la predicción
+entre 0.018 y 0.023, lo que abarca el valor observado.
+
+Como $A_{\rm ell}\propto(R_A/a)^3$, el acuerdo también funciona al revés: invirtiendo la
+ecuación~(\ref{eq:elipsoidal}) con la amplitud observada se obtiene $R_A/a=0.369$, o
+$R_A\approx4.9\,\Rsun$. Es una estimación del radio independiente de la de Stefan--Boltzmann
+($4.8\pm2.8\,\Rsun$). Como $R_A/a\propto(A_{\rm ell}/\alpha_{\rm ell}\,q)^{1/3}$, un error del 30~\% en
+$\alpha_{\rm ell}$ o en $q$ cambia $R_A/a$ solo un $\sim$10~\%. Por eso este camino es mucho más preciso
+que el de Stefan--Boltzmann, aunque dependa de $q$ y de la calibración de $\alpha_{\rm ell}$. En todo
+caso, confirma que la modulación es elipsoidal y que el tamaño de la primaria es el esperado.
+
+% ============================================================
+\section{Consecuencias para el modelo de starry}
+% ============================================================
+\begin{enumerate}
+\item \textbf{Datos de entrada.} El ajuste usa $f/T$ con $T=S\,H$. starry \citep{Luger2019} modela
+  las estrellas como esferas con oscurecimiento al limbo cuadrático \citep{Kipping2013}, sin
+  deformación ni reflexión. Dividir entre $H$ también dentro de los eclipses es una aproximación de
+  primer orden: supone que el eclipse quita la misma fracción de la luz que habría sin él en esa fase.
+  Para una amplitud elipsoidal del 2~\% el error es de segundo orden, $\sim0.02\,D$.
+\item \textbf{Radio de la secundaria.} El prior usa $D_1=(R_B/R_A)^2$. Hay dos correcciones que el
+  ajuste absorbe al tener radios con prior log-uniforme:
+  \begin{itemize}
+  \item la profundidad geométrica es $D_1^{H}\approx0.20$ y no $0.24$ (sección~\ref{sec:normalizacion});
+  \item con una secundaria que aporta $\ell_B\approx0.14$ de la luz, un eclipse no rasante cumple
+    $D_1\simeq\ell_A\,k^2$ con $\ell_A=1-\ell_B$, lo que da $k=R_B/R_A\simeq\sqrt{0.20/0.86}=0.48$, en
+    lugar de $\sqrt{0.20}=0.45$.
+  \end{itemize}
+\item \textbf{Amplitudes.} El prior de la fracción de luz de la secundaria es $\mathrm{amp}_B=D_2$:
+  en un eclipse secundario total, la profundidad es la luz de B.
+\item \textbf{Integración temporal.} En S6 (30~min) el modelo se integra durante la exposición
+  \citep[\texttt{texp};][]{Kipping2010}.
+\item \textbf{Muestreo.} El muestreo es NUTS \citep{Hoffman2014} en PyMC3 \citep{Salvatier2016} con
+  \texttt{exoplanet} \citep{ForemanMackey2021}. $e$ y $\omega$ se parametrizan como en la
+  sección~\ref{sec:ecc}.
+\end{enumerate}
+
+% ============================================================
+\section{Limitaciones}
+% ============================================================
+\begin{itemize}
+\item \textbf{Tiempos de marea.} El sistema tiene una primaria de envolvente radiativa, donde domina la
+  marea dinámica \citep{Zahn1975}, no la de equilibrio convectiva \citep{Zahn1977,Hut1981}. Los tiempos
+  de sincronización y circularización calculados para primarias frías no se aplican a él.
+\item \textbf{Aproximación de la modulación.} La serie de Fourier con $N=2$ describe bien la
+  modulación al nivel del ruido (rms 2~ppt), pero no es un modelo físico de estrellas deformadas. Un
+  modelo de Roche completo (p.~ej. con \texttt{PHOEBE} o \texttt{ellc}) ajustaría la elipsoidal, la
+  reflexión y los eclipses a la vez, y daría $R/a$ directamente de la amplitud.
+\item \textbf{Diferencias entre sectores.} Queda una diferencia sistemática del 4~\% en las
+  profundidades de S98, probablemente por dilución.
+\item \textbf{Radio de la primaria.} El prior de $R_A$ de Stefan--Boltzmann es débil (59~\%); la amplitud
+  elipsoidal y la duración de los eclipses restringen $R_A/a$ mucho mejor.
+\end{itemize}
+
+% ============================================================
+\section{Reproducibilidad}
+% ============================================================
+\begin{itemize}
+\item \texttt{1b\_profundidades\_eclipse\_v2.ipynb}: estimador de profundidad (§2), prueba par-impar (§3),
+  duración robusta (§2.8), primario = más profundo (§2.9). Produce \texttt{priors\_v2.csv}.
+\item \texttt{starry\_por\_tic/TIC\_50897998/full\_50897998\_s*.ipynb}, sección 1: refinamiento de la
+  efeméride y detrending \texttt{"orbital"}, que se activa automáticamente cuando $\teff>6500$~K.
+\item \texttt{documentacion/TIC\_50897998\_geometria/numeros\_TIC\_50897998.csv} y
+  \texttt{chequeo\_elipsoidal.csv}: todos los números de estas notas.
+\end{itemize}
+
+% ============================================================
+% Figuras
+% ============================================================
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth]{fig1_tendencias.pdf}
+\caption{Primeros 4 días de cada sector. Gris: flujo de TESS. Rojo: tendencia del detrending anterior
+(biweight de 0.55~d fuera de eclipse con la efeméride y la duración del catálogo). Azul: tendencia
+orbital $S(t)\,H(\phi)$ de la ecuación~(\ref{eq:modelo}). La tendencia anterior sale casi plana y no sigue
+la modulación. En S32, además, se hunde en los eclipses porque la duración del catálogo (0.056~d) es
+demasiado corta y la máscara no los cubre.}
+\label{fig:tendencias}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth]{fig2_modulacion_orbital.pdf}
+\caption{Flujo dividido por la tendencia lenta $S(t)$ y plegado con el periodo refinado. La curva
+azul es la modulación orbital $H(\phi)$ (2 armónicos), ajustada solo con los puntos fuera de eclipse y
+evaluada en todas las fases. Máximos en las cuadraturas y mínimos en los eclipses: variación elipsoidal
+más reflexión.}
+\label{fig:modulacion}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth]{fig3_aplanadas.pdf}
+\caption{Curvas aplanadas y plegadas. Arriba: efeméride y detrending del catálogo. En S6 y S98 quedan
+``hombros'' curvos fuera de eclipse; S98 se abre en varias trazas por el error de periodo; en S32 el
+eclipse profundo aparece en $\phi=0.5$ (primario y secundario intercambiados). Abajo: efeméride refinada,
+primario en $\phi=0$ y detrending orbital. Fuera de eclipse el flujo queda plano en los tres sectores.}
+\label{fig:aplanadas}
+\end{figure}
+
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{referencias}
+
+\end{document}

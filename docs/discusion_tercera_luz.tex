@@ -1,0 +1,65 @@
+% ============================================================
+\section{Discusión: la tercera luz en el modelado de las curvas}
+\label{sec:tercera_luz}
+% ============================================================
+
+\subsection{El efecto en los parámetros del ajuste}
+La sección~\ref{sec:dilucion} mostró que las curvas de \tx\ tienen entre 15 y 50~\% de flujo que no viene
+de la binaria. En el modelado esa luz se llama \emph{tercera luz}: un flujo constante, que no se eclipsa,
+y que entra a la apertura desde estrellas vecinas, la nebulosa o una tercera estrella ligada al sistema.
+Si una fracción $c$ del flujo normalizado es tercera luz, el modelo observado es
+\begin{equation}
+F_{\rm obs}(t)=(1-c)\,\frac{F_{\rm bin}(t)}{F_{\rm bin,0}}+c,
+\label{eq:tercera_luz}
+\end{equation}
+con $F_{\rm bin,0}$ el flujo de la binaria fuera de eclipse, de modo que $D_{\rm obs}=(1-c)\,D$.
+
+Los ajustes con starry de este trabajo suponen $c=0$: las amplitudes de las dos estrellas suman uno con
+priors estrechos. Para reproducir un eclipse diluido, el modelo compensa con la geometría, ya sea con una
+secundaria más pequeña ($k=R_B/R_A$ menor) o con un eclipse más rasante (inclinación menor). Como
+$R_2\propto\sqrt{D}$, una tercera luz de $c\approx0.3$ se traduce en un $R_2$ subestimado en $\sim20$~\%,
+y con él la masa y la temperatura de la secundaria que se obtienen de las isócronas. Además, como $c$
+cambia de un sector a otro, un modelo con $c=0$ convierte esas diferencias en geometrías distintas para cada
+sector, como se vio en TIC~427353034 S98 y TIC~50897998 S98.
+
+\subsection{Cómo se ha abordado en otros trabajos}
+Los enfoques publicados se pueden agrupar en cuatro, y en la práctica suelen combinarse.
+
+\paragraph{Tercera luz como parámetro libre, por sector.} Es el tratamiento más extendido con TESS.
+En la serie \emph{Rediscussion of eclipsing binaries}, Southworth ajusta la tercera luz con JKTEBOP como
+un parámetro más, por separado en cada sector o periodo de observación \citep[por ejemplo,][]{Southworth2024CWEri}.
+En el ajuste de tránsitos con \texttt{juliet} \citep{Espinoza2019}, la dilución es un parámetro por instrumento
+y puede dejarse libre por sector, aunque muchos parámetros de dilución libres dificultan la convergencia.
+PHOEBE~2.2 \citep{Jones2020} incorpora la tercera luz como flujo o como fracción del total.
+
+\paragraph{Información externa para romper la degeneración.} La tercera luz está correlacionada con la
+inclinación y con $k$, sobre todo en eclipses parciales, así que suele acotarse con información que no viene
+de la curva de luz: el cociente de flujos espectroscópico \citep{David2016}; ajustes en varias bandas, porque
+$c$ depende del color de la contaminante y la geometría no \citep[en Orión,][ajustan $\ell_3$ por banda y obtienen
+$\ell_3=0.31$ en TESS para nuestro sistema~6]{KounkelStassun2024}; o la dinámica de una terciaria, a partir de los
+tiempos de eclipse y la velocidad sistémica \citep{GomezMaqueoChew2019}.
+
+\paragraph{Quitar la contaminación en la fotometría.} Con fotometría PSF que modela y resta las estrellas de
+Gaia, como TGLC \citep{HanBrandt2023}, la dilución se corrige antes del ajuste; \citet{Han2025} muestran que, sin
+esto, los radios planetarios de TESS salen subestimados en un 6~\% en promedio. SPOC corrige con la fracción de
+contaminación del TIC (\texttt{CROWDSAP}), que \citet{Baum2025} revisan sector por sector antes de interpretar
+cambios de profundidad. En ajustes conjuntos con fotometría terrestre de alta resolución angular, la dilución de
+ésta se fija en uno y solo se ajusta la de TESS.
+
+\paragraph{Comparación de modelos.} Varios trabajos ajustan con y sin tercera luz y eligen con un criterio
+estadístico (por ejemplo, el BIC), de modo que solo se incluye cuando los datos lo justifican.
+
+\subsection{Aplicación a esta muestra}
+No contamos con cocientes de flujo espectroscópicos ni con fotometría terrestre, pero sí con dos elementos que
+rara vez se tienen juntos: varios sectores con contaminación distinta y una medición independiente de $c$ por
+sector, la comparación con TGLC (tabla~\ref{tab:dilucion}). El tratamiento más directo sería ajustar una sola
+geometría para todos los sectores de un sistema, con un $c$ propio en cada sector y un prior centrado en el
+valor de TGLC (con $\sigma_c\approx0.1$, para cubrir las diferencias entre versiones de TGLC), y comprobarlo
+con el ajuste de las curvas TGLC de S98 con $c\approx0$. Este esquema tiene además una ventaja diagnóstica:
+un $c$ por sector no puede reproducir un cambio de $D_2/D_1$, de modo que en los sistemas 1, 9, 12 y 18 el
+cambio de $D_2/D_1$ debería seguir apareciendo como residuo si es real.
+
+Mientras no se incluya la tercera luz en el modelo, los radios y masas de las secundarias derivados aquí deben
+tomarse como \textbf{límites inferiores}.
+
+\input{discusion_sistema11}

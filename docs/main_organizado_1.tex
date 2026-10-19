@@ -1,0 +1,418 @@
+\documentclass[11pt,a4paper]{article}
+
+% ------------------------------------------------------------
+% Paquetes
+% ------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands,es-tabla]{babel}
+\decimalpoint
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[round,authoryear]{natbib}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\graphicspath{{figuras/}}
+
+\newcommand{\porb}{P_{\rm orb}}
+\newcommand{\tx}{\texttt{tess\_extractor}}
+\newcommand{\Dum}{D_2/D_1}
+
+\title{Profundidades de eclipse entre sectores de TESS en Orión:\\
+¿variación real de las estrellas o efecto sistemático?}
+\author{Notas de procedimiento}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+La prueba de consistencia de \texttt{1b\_profundidades\_eclipse\_v2.ipynb} marcó 13 de los 21
+sistemas porque la profundidad de sus eclipses cambia de un sector de TESS a otro. Estas notas
+explican cómo se separó la parte real (cambio del flujo de las estrellas) de la parte sistemática
+(fotometría, cadencia y efeméride). Se compararon cinco fotometrías independientes de los mismos
+sectores (\tx, TGLC, QLP, CDIPS y PDCSAP), se midió cada eclipse por separado en su propio mínimo y
+se llevaron todas las curvas a una cadencia común de 30~min. Los resultados son tres. (1)~Las
+curvas de \tx\ están diluidas: sus eclipses son entre 15 y 50~\% más someros que en las
+fotometrías que restan las estrellas vecinas, como advierten los propios autores de la herramienta.
+(2)~Buena parte de las diferencias entre sectores eran cadencia (30~min en S5/S6) y efeméride
+imprecisa. (3)~En cuatro sistemas el cociente $\Dum$, que no depende de la dilución, cambia en el
+mismo sentido en todas las fotometrías: ahí hay una variación real.
+\end{abstract}
+
+\tableofcontents
+
+% ============================================================
+\section{Resumen de resultados}
+% ============================================================
+
+\begin{table}[H]
+\centering
+\caption{Veredicto por sistema. ``$D_1$ entre sectores'' se refiere a la profundidad del primario
+en un mismo método fotométrico; ``$\Dum$'' al cociente de profundidades, que es independiente de la
+dilución (sección~\ref{sec:dilucion}). Todo a cadencia común de 30~min.}
+\label{tab:resumen}
+\small
+\begin{tabular}{llll}
+\toprule
+Sistema & TIC & $D_1$ entre sectores & $\Dum$ \\
+\midrule
+1  & 176775425 & estable; S98 de \tx\ $+7$~\% (sistemático) & \textbf{real}: sube de 0.54 a 0.62 \\
+3  & 11412481  & consistente & estable \\
+4  & 50897998  & S98 $-5$~\% en \tx\ y PDCSAP (dilución común) & estable \\
+5  & 249074181 & sin fotometría independiente & sin comparación \\
+6  & 72921630  & sin fotometría independiente & sin comparación \\
+7  & 264483228 & consistente & leve aumento (0.068 a 0.074) \\
+8  & 11300044  & consistente & sin comparación \\
+9  & 427353034 & S98 de \tx\ $-24$~\% (sistemático) & \textbf{real}: baja de 0.39 a 0.36 \\
+10 & 72829000  & consistente & sin comparación \\
+11 & 138829403 & S32 de \tx\ $-7$~\% (sistemático) & estable \\
+12 & 264741359 & estable ($\pm1.5$~\%) & \textbf{real}: baja de 0.387 a 0.342 \\
+16 & 427395536 & consistente & posible aumento (ruidoso) \\
+18 & 427347964 & \textbf{real}: S32 $+25$~\%, S98 $-35$~\% & \textbf{real}: sube en S98 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+En pocas palabras:
+\begin{enumerate}
+\item Las curvas de \tx\ son fotometría de apertura sin corrección de contaminación. En casi todos
+  los sistemas tienen entre 15 y 50~\% de flujo ajeno a la binaria (tabla~\ref{tab:dilucion}). Esto
+  achica las profundidades y, en starry, los radios de la secundaria.
+\item La fracción de flujo ajeno cambia de sector a sector. Por eso la profundidad de \tx\ cambia sin
+  que cambie la estrella (sistemas 1, 9 y 11).
+\item La cadencia de 30~min de S5/S6 achata los eclipses cortos entre 5 y 15~\% (figura~\ref{fig:cadencia}).
+  Como S5/S6 son también los sectores más antiguos, esto parecía una tendencia temporal.
+\item En los sistemas 1, 9, 12 y 18, $\Dum$ cambia en el mismo sentido en todas las fotometrías y a la
+  misma cadencia. Eso no lo puede producir la dilución: es un cambio real del brillo relativo de las
+  estrellas (manchas) o de la geometría.
+\end{enumerate}
+
+% ============================================================
+\section{El problema}
+% ============================================================
+La profundidad de un eclipse es una propiedad geométrica del sistema: depende de los radios, de la
+inclinación y del cociente de brillos superficiales. Salvo que alguna de esas cosas cambie, debería
+ser la misma en todos los sectores. La prueba $\chi^2$ de la sección~7 del notebook 1b encontró que
+no es así en 13 sistemas (figura~\ref{fig:plegadas1b}). Hay tres familias de explicaciones:
+\begin{itemize}
+\item \textbf{reales}: manchas que cambian el brillo de una de las estrellas, una tercera estrella
+  variable en la apertura, o un cambio de inclinación por una tercera estrella \citep{Baum2025};
+\item \textbf{fotométricas}: distinta contaminación por estrellas vecinas o por la nebulosa en cada
+  sector;
+\item \textbf{de la medición}: cadencia distinta en cada sector y efeméride imprecisa.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{fig1_plegadas_1b.png}
+\caption{Curvas plegadas por sector de \tx, tal como salieron del notebook 1b. Cada color es un
+sector; la línea discontinua marca $1-D$ de cada sector.}
+\label{fig:plegadas1b}
+\end{figure}
+
+% ============================================================
+\section{Fotometrías}
+\label{sec:fotometrias}
+% ============================================================
+
+\subsection{\tx\ (TESSExtractor)}
+Las curvas de TESS \citep{Ricker2015} de \texttt{Light\_Curve\_Files/} vienen de TESSExtractor \citep{Serna2026}, la herramienta
+que se usó para la rotación de estrellas T~Tauri en el complejo de Orión \citep{Serna2021}. Según su
+descripción:
+\begin{itemize}
+\item descarga un corte de $10\times10$~píxeles de las imágenes completas (FFI) con TESScut;
+\item hace fotometría de apertura con un radio que depende de la magnitud (1.5 a 3~píxeles);
+\item estima el fondo con la \emph{moda} de los píxeles de un anillo alrededor de la estrella;
+\item corrige sistemáticos con vectores de tendencia común (CBV): en una escala (\texttt{Flux\_CBV\_SS})
+  y en varias escalas más picos (\texttt{Flux\_CBV\_MS}).
+\end{itemize}
+\textbf{No corrige la dilución}. Solo calcula una métrica de contaminación con las vecinas de Gaia y
+recomienda tratar con cautela los objetos con más de 15~\%. Los mismos autores señalan que la
+fotometría de apertura ``inevitablemente incluye flujo contaminante'' y da eclipses más someros que la
+fotometría PSF de TGLC \citep{Serna2026}.
+
+\subsection{TGLC}
+TESS--Gaia Light Curve \citep{HanBrandt2023} modela la escena completa: con las posiciones y
+magnitudes de Gaia DR3 ajusta una PSF efectiva (ePSF) en cada imagen, resta el flujo de todas las
+vecinas y mide la estrella con PSF o con una apertura de $3\times3$~píxeles sobre la imagen
+descontaminada. Las versiones \texttt{cal\_*} fijan la mediana al flujo que predice Gaia, lo que
+corrige la dilución en escala absoluta. Con TGLC, \citet{Han2025} encuentran que los pipelines públicos
+subestiman los radios planetarios en una mediana de 6~\%.
+
+En MAST, TGLC solo existe para S5/S6 en estos objetos. El resto de los sectores se intentó correr
+localmente (notebook 1c), pero el servicio TESScut estuvo caído (errores 502). Una salida inesperada:
+\textbf{desde el sector 94, QLP usa la fotometría de TGLC} \citep{Petitpas2026}, así que las curvas
+QLP de S98 son en la práctica TGLC de apertura $3\times3$. Así se usan aquí.
+
+Atención: la serie TGLC mezcla versiones (HLSP v1 en S6, la implementación de QLP en S98 y tglc~0.8.1
+local). Entre versiones hay diferencias de 10 a 25~\% en $D_1$ (en TIC~138829403 S6, por ejemplo, 0.055
+en el HLSP y 0.050 local). Por eso $D_1$ de TGLC se usa como referencia de la dilución, pero no para
+seguir $D_1$ de un sector a otro.
+
+\subsection{QLP, CDIPS y PDCSAP}
+\begin{itemize}
+\item \textbf{QLP} \citep{Huang2020,Kunimoto2021}: fotometría de apertura del MIT (FIPHOT), sin
+  corrección de dilución, hasta S93.
+\item \textbf{CDIPS} \citep{Bouma2019}: imagen diferencia pensada para cúmulos jóvenes; se usa la
+  apertura 2 (\texttt{IRM2}). Tampoco corrige la dilución.
+\item \textbf{PDCSAP} de SPOC (cadencia de 2~min) y TESS-SPOC (FFI) \citep{Jenkins2016,Caldwell2020}:
+  apertura corregida por la fracción de contaminación del TIC (\texttt{CROWDSAP}). En la misión
+  primaria (sectores 1--26) SPOC sobrestimaba el fondo en campos poblados, lo que \emph{profundiza} los
+  eclipses; se corrigió a partir del sector 27 \citep{Burt2020}.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Sectores disponibles por fotometría para los 13 sistemas revisados.}
+\label{tab:disponibles}
+\small
+\begin{tabular}{lllllll}
+\toprule
+Sistema & TIC & \tx & TGLC & QLP ($<$S94) & CDIPS & PDCSAP \\
+\midrule
+1  & 176775425 & 6, 33, 87, 98 & 6, 87, 98 & 6, 33, 87 & 6, 33 & 33 \\
+3  & 11412481  & 6, 98 & 6, 98 & 6 & -- & -- \\
+4  & 50897998  & 6, 32, 98 & 6, 98 & 6, 32 & -- & 6, 32, 98 \\
+5  & 249074181 & 5, 32, 98 & 5 & -- & -- & -- \\
+6  & 72921630  & 6, 98 & 6 & -- & -- & -- \\
+7  & 264483228 & 6, 32, 98 & 6, 98 & 6, 32 & 6, 32 & 6, 32 \\
+8  & 11300044  & 6, 98 & 6 & 6 & -- & -- \\
+9  & 427353034 & 6, 32, 98 & 6, 98 & 6, 32 & 32 & -- \\
+10 & 72829000  & 6, 98 & 6 & 6 & -- & -- \\
+11 & 138829403 & 6, 32, 98 & 6, 98 & 6, 32 & 6, 32 & 6, 32 \\
+12 & 264741359 & 6, 32, 98 & 6, 98 & 6, 32 & 6, 32 & -- \\
+16 & 427395536 & 6, 32, 98 & 6, 98 & 6 & 32 & -- \\
+18 & 427347964 & 6, 32, 98 & 6, 98 & 6, 32 & 6, 32 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Dilución: por qué cambia la profundidad sin que cambie la estrella}
+\label{sec:dilucion}
+% ============================================================
+Si una fracción $c$ del flujo en la apertura no es de la binaria, el eclipse observado es
+\begin{equation}
+D_{\rm obs}=(1-c)\,D,
+\label{eq:dilucion}
+\end{equation}
+con $D$ la profundidad real. La fracción $c$ es lo que en los ajustes se llama tercera luz, $\ell_3$.
+Hay dos consecuencias:
+\begin{enumerate}
+\item $c$ depende de la fotometría y \textbf{del sector}. Los píxeles de TESS miden 21'' y la PSF se
+  extiende más de un minuto de arco, así que en Orión siempre entra luz de vecinas y de la nebulosa. En
+  cada sector la estrella cae en otra cámara, con otra orientación del campo y otra forma de la PSF; la
+  apertura y el anillo de fondo se recalculan. El resultado es un $c$ distinto por sector, y con él un
+  $D_{\rm obs}$ distinto.
+\item El cociente de profundidades \textbf{no depende de $c$}:
+\begin{equation}
+\frac{D_{2,\rm obs}}{D_{1,\rm obs}}=\frac{(1-c)\,D_2}{(1-c)\,D_1}=\frac{D_2}{D_1}.
+\end{equation}
+  Un cambio de $\Dum$ entre sectores no puede ser dilución. Es la prueba más limpia de que algo
+  cambió en las estrellas.
+\end{enumerate}
+
+La tabla~\ref{tab:dilucion} da $c=1-D_{\tx}/D_{\rm ref}$ para cada fotometría de referencia en el mismo
+sector. Con TGLC, que resta las vecinas, $c$ va de 0.2 a 0.6 en la mayoría de los sistemas.
+
+\begin{table}[H]
+\centering
+\caption{Fracción de flujo ajeno en las curvas de \tx, $c=1-D_{1,\tx}/D_{1,\rm ref}$, en el mismo
+sector y a 30~min. Un $c$ negativo indica que la referencia es la más somera (por ejemplo, PDCSAP con el
+fondo sobrestimado o una estrella saturada).}
+\label{tab:dilucion}
+\small
+\begin{tabular}{llcccc}
+\toprule
+TIC & Sector & TGLC & CDIPS & QLP & PDCSAP \\
+\midrule
+176775425 & 6  & 0.49 & 0.44 & 0.31 & -- \\
+11412481  & 6  & 0.47 & --   & 0.32 & -- \\
+11300044  & 6  & 0.43 & --   & 0.32 & -- \\
+427353034 & 6  & 0.48 & --   & 0.33 & -- \\
+427395536 & 6  & 0.60 & --   & 0.38 & -- \\
+264741359 & 6  & 0.37 & 0.24 & 0.17 & -- \\
+72921630  & 6  & 0.34 & --   & --   & -- \\
+249074181 & 5  & 0.30 & --   & --   & -- \\
+138829403 & 32 & --   & 0.13 & 0.18 & 0.16 \\
+427347964 & 6  & 0.18 & 0.15 & 0.05 & -- \\
+264483228 & 32 & --   & $-0.01$ & 0.00 & 0.00 \\
+50897998  & 32 & --   & --   & 0.19 & 0.01 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Una comprobación externa: \citet{KounkelStassun2024} estudiaron 2MASS~J05454167$-$0004024, que es
+nuestro sistema~6 (TIC~72921630), con eleanor en S6. Ajustaron una tercera luz de $\ell_3=0.31$ en la
+banda de TESS y la atribuyen a una compañera terciaria. Nuestra comparación de \tx\ con TGLC en el mismo
+sector da $c=0.34$. Su periodo es $\porb=1.817212$~d, mientras que \texttt{priors\_v2.csv} tiene
+1.82071~d; la diferencia ($3.5\times10^{-3}$~d) basta para achatar el eclipse plegado y hay que revisarla.
+
+% ============================================================
+\section{Método}
+\label{sec:metodo}
+% ============================================================
+
+\subsection{Profundidad de cada eclipse}
+En lugar de una profundidad por sector se mide cada eclipse por separado. Con el flujo normalizado sin
+eclipses (biweight de \texttt{wotan}, \citealt{Hippke2019}) y la línea base $B$ del sector, para cada evento
+se busca el mínimo de la mediana móvil con una ventana de $0.3\,W$ (nunca menor que dos cadencias) y el
+centro libre en $\pm W/8$ alrededor de la efeméride:
+\begin{equation}
+D_k=B-\min_{c\in[-W/8,\,W/8]}\ \operatorname{med}\{F_i:\ |\phi_i-c|<h\},\qquad
+\sigma_{D_k}=\sqrt{\tfrac{\pi}{2}}\,\frac{\hat\sigma}{\sqrt{n_k}}.
+\end{equation}
+Como cada eclipse se mide en su propio mínimo, un periodo con un pequeño error ya no achata la
+profundidad: con el estimador por sector, la deriva acumulada en S98 abría el eclipse plegado en varias
+trazas y lo hacía más somero. La profundidad de referencia de un sector es la mediana de sus eclipses.
+Se guarda también el nivel de brillo fuera de eclipse en el momento de cada eclipse, para buscar la firma
+de las manchas.
+
+\subsection{Cadencia común}
+El orden temporal de los sectores coincide con el de sus cadencias: 30~min en S5/S6, 10~min en
+S32/S33 y 3.3~min en S87/S98. Una exposición larga promedia el fondo del eclipse con sus flancos
+\citep{Kipping2010}, así que un eclipse corto se ve más somero, y más si es en V que si tiene fondo plano.
+Eso puede imitar una tendencia temporal, tanto en $D_1$ como en $\Dum$. Para quitarlo, todas las curvas
+se promedian a 30~min antes de medir. En el sistema~1, por ejemplo, promediar S33 a 30~min baja $D_1$ de
+0.220 a 0.208 con el estimador por sector y de 0.213 a 0.181 eclipse por eclipse (figura~\ref{fig:cadencia}).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{fig4_cadencia.pdf}
+\caption{Efecto de la cadencia en TIC~176775425 (eclipse de 1.3~h). Azul: cadencia nativa; rojo: la misma
+curva promediada a 30~min, como S6.}
+\label{fig:cadencia}
+\end{figure}
+
+\subsection{Comparación entre fotometrías}
+Cada fotometría trata la contaminación de otra forma, así que sus profundidades absolutas no tienen por
+qué coincidir. \citet{Baum2025} lo advierten: los cambios de profundidad solo se pueden seguir \emph{dentro}
+de un mismo conjunto de datos. Por eso se compara el \textbf{patrón entre sectores},
+$D_1(s)/\langle D_1\rangle$ dentro de cada fotometría, y el cociente $\Dum$, que es comparable entre
+fotometrías. Para cada fotometría y sistema se calculan además:
+\begin{itemize}
+\item un ANOVA sobre los eclipses individuales: ¿difieren las medias de los sectores más de lo que se
+  dispersan los eclipses dentro de cada sector? ($p_{\rm entre}$);
+\item la correlación de Spearman entre $D_k$ y el brillo fuera de eclipse dentro de cada sector
+  ($p_{\rm brillo}$). Si la estrella eclipsada tiene manchas no ocultadas, el eclipse cambia con el
+  brillo.
+\end{itemize}
+
+% ============================================================
+\section{Resultados por sistema}
+\label{sec:resultados}
+% ============================================================
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig2_patron_30min.png}
+\caption{Patrón entre sectores por fotometría, con todas las curvas a 30~min. Para cada sistema, a la
+izquierda $D_1(s)$ dividido por el promedio de esa fotometría y a la derecha $\Dum$.}
+\label{fig:patron}
+\end{figure}
+
+\paragraph{Variación real ($\Dum$ cambia en todas las fotometrías).}
+\begin{itemize}
+\item \textbf{Sistema 1 (TIC 176775425).} $\Dum$ sube de 0.534--0.551 en S6 a 0.616--0.624 en S98 en
+  \tx, QLP, CDIPS y TGLC. $D_1$ no tiene un patrón común: \tx\ da S98 $+7$~\% y la serie TGLC/QLP lo
+  da más somero. El secundario se hace más profundo respecto del primario en unos 12~\% en siete años.
+\item \textbf{Sistema 9 (TIC 427353034).} $\Dum$ baja de $\sim0.39$ a 0.36 en \tx, QLP y TGLC. Por
+  otro lado, el $D_1$ de \tx\ en S98 cae 24~\%, cosa que no ocurre en las otras: eso es sistemático de
+  \tx\ (la contaminación de S98 es mayor).
+\item \textbf{Sistema 12 (TIC 264741359).} $D_1$ estable en \tx\ ($\pm1.5$~\%) y en CDIPS; $\Dum$ baja de
+  0.387 a 0.357 y 0.342 en \tx, QLP, CDIPS y TGLC. El secundario se hace más somero. La correlación con el
+  brillo es significativa ($p_{\rm brillo}\sim10^{-6}$), así que hay manchas. Gaia tiene una compañera a
+  1.3'' ($\Delta T\approx1.6$~mag); se podría verificar de cuál viene la señal con TESS\_localize
+  \citep{HigginsBell2023}.
+\item \textbf{Sistema 18 (TIC 427347964).} Todas las fotometrías ven S32 más profundo y S98 $\sim35$~\% más
+  somero, y $\Dum$ sube en S98. Es el único sistema con un cambio real de $D_1$. Como $\Dum$ también
+  cambia, no es solo una tercera luz que varía: algo cambia en las propias estrellas.
+\end{itemize}
+
+\paragraph{Sistemático de \tx.}
+\begin{itemize}
+\item \textbf{Sistema 11 (TIC 138829403).} \tx\ da S32 $7$~\% más somero que S6; CDIPS, PDCSAP y QLP dan
+  S6 y S32 iguales dentro de $\pm2$~\%. $\Dum$ estable.
+\item \textbf{Sistema 4 (TIC 50897998).} \tx\ y PDCSAP (cadencia de 2~min, independiente) dan S98
+  $\sim5$~\% más somero, con $\Dum$ constante (0.582--0.588). Es una dilución común a la fotometría de
+  apertura de una estrella saturada ($T=5.5$); TGLC y QLP~S98 no sirven aquí.
+\end{itemize}
+
+\paragraph{Consistentes.}
+Los sistemas 3, 7, 8, 10 y 16 no muestran un salto entre sectores cuando se miden eclipse por eclipse y a
+la misma cadencia. Lo que marcaba el 1b era el estimador por sector (efeméride y cadencia). En el sistema~7,
+$\Dum$ sube levemente (0.068 a 0.074) en todas las fotometrías; puede ser real pero es pequeño.
+
+\paragraph{Sin comparación independiente.}
+Los sistemas 5 (TIC 249074181) y 6 (TIC 72921630) solo tienen curvas de \tx\ en S32/S98. Las dos muestran
+saltos grandes en $D_1$ y en $\Dum$ (en el sistema~5, $\Dum$ va de 0.68 a 1.41), pero son estrellas débiles
+($T=13.9$ y 14.8), con mucha contaminación ($c\approx0.3$). Hace falta TGLC local para decidir.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig3_plegadas_clave.pdf}
+\caption{Eclipse primario plegado por sector (colores) en cada fotometría (columnas), para los cuatro
+sistemas con variación real de $\Dum$. Las líneas discontinuas marcan $1-D_1$ de cada sector, medido eclipse
+por eclipse.}
+\label{fig:plegadas_clave}
+\end{figure}
+
+\input{discusion_tercera_luz}
+
+% ============================================================
+\section{Implicaciones para el ajuste con starry}
+% ============================================================
+\begin{enumerate}
+\item \textbf{Tercera luz por sector.} Las curvas de \tx\ deben ajustarse con un parámetro de dilución por
+  sector, $D_{\rm obs}=(1-\ell_{3,s})\,D$ \citep[como en][]{KounkelStassun2024}. Los valores de la
+  tabla~\ref{tab:dilucion} sirven como priors, con una incertidumbre de al menos 10~\% por las
+  diferencias entre versiones de TGLC. Sin este parámetro, starry subestima el radio y el brillo
+  superficial de la secundaria.
+\item \textbf{Integración en la exposición.} Los sectores de 30~min deben modelarse integrando el flujo
+  durante la exposición \citep{Kipping2010}; starry lo permite \citep{Luger2019}.
+\item \textbf{Sistemas con $\Dum$ variable} (1, 9, 12 y 18). Un modelo único para todos los sectores no va a
+  ajustar bien. Hay dos opciones: ajustar cada sector por separado, o dejar que el cociente de brillos
+  superficiales (o un mapa de manchas) cambie entre sectores.
+\item \textbf{Efemérides.} El estimador por sector es sensible al periodo; conviene una efeméride global con
+  todos los sectores (siete años de base). El sistema~6 tiene un periodo publicado distinto del nuestro.
+\end{enumerate}
+
+% ============================================================
+\section{Pendientes}
+% ============================================================
+\begin{itemize}
+\item Terminar las curvas TGLC locales (notebook 1c), sobre todo para los sistemas 5 y 6; depende de que
+  TESScut responda.
+\item Comprobar el periodo del sistema~6 con el valor de \citet{KounkelStassun2024}.
+\item Actualizar la regla automática del notebook 1e para que use las medidas a 30~min y separe la prueba de
+  $D_1$ (sistemática o real) de la de $\Dum$ (cambio físico).
+\item Localizar con TESS\_localize \citep{HigginsBell2023} la fuente de la variabilidad en el sistema~12.
+\end{itemize}
+
+% ============================================================
+\section{Reproducibilidad}
+% ============================================================
+\begin{itemize}
+\item \texttt{1c\_tglc\_extraccion.ipynb} (kernel \texttt{tglc}): TGLC local; los sectores de 200~s se
+  promedian de a 3 imágenes antes del ajuste del ePSF.
+\item \texttt{1d\_tglc\_profundidades.ipynb} (kernel \texttt{starry}): TGLC frente a \tx, eclipses
+  individuales.
+\item \texttt{1e\_profundidades\_todas\_fotometrias.ipynb} (kernel \texttt{starry}): las cinco fotometrías;
+  usa las curvas de \texttt{Light\_Curve\_Files\_MAST/} y no depende de TESScut. Salidas en
+  \texttt{resultados\_pipeline/profundidades\_v2/pipelines/}.
+\item Números de esta nota: \texttt{numeros\_profundidades\_30min.csv}; veredicto automático del 1e:
+  \texttt{veredicto\_automatico.csv}.
+\end{itemize}
+
+\bibliographystyle{plainnat}
+\bibliography{referencias}
+
+\end{document}

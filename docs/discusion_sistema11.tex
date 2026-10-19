@@ -1,0 +1,34 @@
+% ============================================================
+\section{Discusión: la luminosidad de la primaria del sistema 11 (TIC 138829403)}
+\label{sec:sistema11}
+% ============================================================
+El tipo espectral de la literatura para la primaria del sistema~11 es B3.5 (FAST; \texttt{Macro\_21aug2026.csv}),
+que en la escala de Pecaut \& Mamajek corresponde a $T_{\rm eff}\approx16\,700$~K. Con la fotometría de Gaia y
+2MASS, la paralaje corregida ($\varpi=2.336\pm0.025$~mas, $d\approx430$~pc, RUWE $=1.34$) y una extinción de
+$A_V=1.3$ (MassAge, anclado en $J$), la luminosidad resulta $\log L/L_\odot=2.25$. A 10~Myr, la isócrona PARSEC
+de secuencia principal predice para esa temperatura $\log L/L_\odot=2.62$ ($M\approx4.6\,M_\odot$,
+$R\approx2.5\,R_\odot$): la estrella queda $0.37$~dex (un factor 2.3) \textbf{por debajo} de la secuencia principal,
+en una zona del diagrama HR que ninguna isócrona ocupa. Por eso MassAge no encuentra solución en la fase
+pre-secuencia principal y, en la fase completa, devuelve una edad sin sentido ($\sim$100--330~Myr).
+
+Las explicaciones posibles son:
+\begin{itemize}
+\item \textbf{Extinción subestimada.} Para subir la luminosidad 0.37~dex hacen falta $\sim0.9$~mag más en la banda
+  $J$, es decir $A_V\approx3$--4 en lugar de 1.3. MassAge estima $A_V$ comparando colores observados con los
+  intrínsecos de la temperatura dada; si la $T_{\rm eff}$ es menor que la supuesta, la extinción derivada también
+  se subestima.
+\item \textbf{Tipo espectral o temperatura sobreestimados.} El TIC~8.2 da $T_{\rm eff}=8\,388$~K a partir de colores,
+  muy distinto del B3.5 espectroscópico. Si la estrella fuera más fría, con la misma fotometría quedaría en otra
+  posición del diagrama HR. La $T_{\rm eff}$ del TIC no está corregida por enrojecimiento y no es confiable aquí,
+  pero la discrepancia sugiere revisar la clasificación espectral.
+\item \textbf{Distancia.} Para explicar el déficit con la distancia, la paralaje tendría que ser $\sim1.5$ veces
+  menor; con $\sigma_\varpi/\varpi\approx1$~\% y RUWE de 1.34 eso es poco probable.
+\end{itemize}
+
+Este problema afecta a los parámetros de la primaria y, a través de ellos, a los de la secundaria: el radio
+$R_1=1.63\,R_\odot$ del catálogo (Stefan--Boltzmann) es menor que los 2.0--2.2~$R_\odot$ del ajuste con starry y que
+los $\sim2.5\,R_\odot$ esperados para una B3.5, de modo que $R_2=R_1\sqrt{D_1}$ y la masa de la secundaria que se
+deriva de las isócronas ($\sim0.06\,M_\odot$) están subestimados. No afecta, en cambio, a la edad asignada al
+sistema, que proviene de sus hermanas cinemáticas ($10.8\pm1.8$~Myr) y no de la posición de la primaria en el
+diagrama HR. Resolverlo requiere un espectro que confirme el tipo espectral y una estimación independiente de la
+extinción (por ejemplo, a partir de mapas 3D de polvo o de los colores de estrellas vecinas a la misma distancia).
